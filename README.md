@@ -2,6 +2,8 @@
 
 A jsPsych 8 experiment for eliciting participants' responses to word cues. Uses the survey-html-form plugin extended with dynamically generated input fields — each response entered in a separate field — making it suitable for collecting semantic, associative, and other property generation norms. Built for online deployment via [JATOS](https://www.jatos.org/).
 
+[![DOI](https://zenodo.org/badge/1172854815.svg)](https://doi.org/10.5281/zenodo.18867519)
+
 ## Features
 
 - **Dynamic chained input fields** — new response fields appear automatically as the participant types, with no artificial upper limit on the number of responses
