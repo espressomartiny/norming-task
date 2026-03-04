@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="cs">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Experiment</title>
+    <script src="jatos.js"></script>
+    <script src="https://unpkg.com/jspsych@8.2.1"></script>
+    <!-- plugins -->
+    <script src="https://unpkg.com/@jspsych/plugin-preload@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-instructions@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.1.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-browser-check@2.1.0"></script>
+
+    <!-- stimuli -->
+    <script src="stimuli.js"></script>
+    <!-- CSS -->
+    <link href="https://unpkg.com/jspsych@8.2.1/css/jspsych.css" rel="stylesheet" />
+    <link href="style.css" rel="stylesheet" />
+</head>
+
+<body>
+    <script>
+      // --------
+      // title: Affordance Norms for Czech Nouns
+      // experiment version: LM2512-EXP01T; 2026-01-08
+      // jsPsych version: 8.2.1
+      // date: 30.12.2025
+      // author: Martina Vokáčová
+      //----------
+
+
+
+        const EXPERIMENT_VERSION = "2026-01-08";
+
+        // --- progress bar 
+        let progress_done = 0;
+        let progress_total = 1;
+        let suppress_practice_repeat = false;
+        let allow_skip_practice = false;
+
+
+        // --- inicializace ---
+        const jsPsych = initJsPsych({
+            show_progress_bar: true,
+            auto_update_progress_bar: false,
+            message_progress_bar: "",
+            on_trial_start: jatos.addAbortButton, // přidá Cancel btn
+            on_trial_finish: (data) => {
+                const task = data?.task;
+
+
+                // browser-check nezapočítává do progressbaru
+                if (task === "browser_check") return;
+
+                // pokud se participant vrátí k instrukcím, progressbar ať se nehýbe
+                if (task === "practice_end_choice" && Number(data.response) === 0) {
+                    return;
+                }
+
+                // a ať se nehýbe ani při opakovaném průchodu practice blokem
+                if (suppress_practice_repeat) {
+                    const resp = Number(data.response);
+
+                    const ignore =
+                        task === "instructions" ||
+                        task === "practice" ||
+                        data?.phase === "practice" ||
+                        (task === "practice_end_choice");
+
+                    if (ignore) return;
+                }
+
+                // jinak se chovej se jako auto-update
+                progress_done += 1;
+                if (jsPsych.progressBar) {
+                    jsPsych.progressBar.progress = Math.min(progress_done / progress_total, 1);
+                }
+            },
+            on_finish: () => {
+                const inter = jsPsych.data.getInteractionData().values();
+                const n_blur = inter.filter(e => e.event === "blur").length; // ukáže, kolikrát si parcicipant odskočil mimo okno
+                const n_focus = inter.filter(e => e.event === "focus").length;
+                const n_fullscreenexit = inter.filter(e => e.event === "fullscreenexit").length;
+                const n_instructions =
+                    jsPsych.data.get().filter({ task: "instructions" }).count(); // kolikrát se zobrazily instrukce
+                const did_repeat_instructions =
+                    jsPsych.data.get().filter({ task: "instructions" }).values()
+                        .some(r => Number(r.instructions_repeat) === 1) ? 1 : 0;
+                const did_skip_practice =
+                    jsPsych.data.get().filter({ task: "instructions" }).values()
+                        .some(r => Number(r.instructions_repeat) === 1 && Number(r.response) === 1)
+                        ? 1 : 0;
+
+                jsPsych.data.addProperties({
+                    ended_at_iso: new Date().toISOString(),
+                    n_blur, n_focus, n_fullscreenexit,
+                    n_instructions,
+                    did_repeat_instructions, did_skip_practice
+                });
+
+                jatos.endStudy(jsPsych.data.get().csv());
+            }
+
+        });
+
+
+        // --- metadata známá od začátku ---
+        const subject_id = jsPsych.randomization.randomID(15);
+        jsPsych.data.addProperties({
+            subject_id,
+            started_at_iso: new Date().toISOString(), // čas startu
+            experiment_version: EXPERIMENT_VERSION,
+
+        });
+
+
+        // ========= PAGES =========
+        const intro_page = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus:
+                ' <div class="intro-top"> <img class="intro-logo" src="https://www.ff.cuni.cz/wp-content/uploads/2014/07/rgb1-1.png" alt="Filozofická fakulta UK"> ' +
+                ' <div class="intro-meta"> <div><strong>Experiment:</strong> Interakce s objekty</div> <div class="intro-id"><strong>ID:</strong> LM2512-EXP01T</div> </div> </div> ' +
+                ' <hr class="intro-rule">' +
+                "<p>Dobrý den,</p>" +
+                "<p>moc děkujeme, že se účastníte tohoto experimentu. Experiment je součástí disertační práce Martiny Vokáčové, realizované na Ústavu českého jazyka a teorie komunikace Filozofické fakulty Univerzity Karlovy, a zkoumá způsoby interakce lidí s různými typy objektů. V jeho průběhu se na obrazovce budou postupně objevovat slova označující různé věci. Vaším úkolem bude uvést, jaké činnosti se podle Vás s danou věcí obvykle pojí.</p>" +
+                "<p>Experiment trvá přibližně 30 minut.</p>" +
+                "<p>Vaše anonymizované odpovědi budou zaznamenány a použity pouze pro vědecké účely. Z experimentu můžete kdykoliv odstoupit stisknutím tlačítka „Cancel“ v pravém dolním rohu. V takovém případě budou Vaše odpovědi vymazány.</p>" +
+                "<p><b>Důležité</b>: Experiment nemusí fungovat správně v některých prohlížečích na mobilních zařízeních. Pokud by tlačítka nereagovala na stisknutí, použijte prosím počítač.</p>",
+            choices: ["Souhlasím s účastí a chci pokračovat"],
+            css_classes: ["info-page", "intro-page"],
+            data: { task: "intro" }
+        };
+
+        const demographic_page = {
+            type: jsPsychSurveyHtmlForm,
+            css_classes: ["demo-page"],
+            html: `
+      <div class="demo-intro">
+        <h2>Demografický dotazník</h2>
+        <p>Před zahájením samotného experimentu Vás prosíme o poskytnutí následujících údajů.</p>
+      </div>
+
+      <p>
+        <label for="native_lang">Mateřský jazyk</label>
+        <select id="native_lang" name="native_lang" required>
+          <option value="" selected>— vyberte —</option>
+          <option value="czech">čeština</option>
+          <option value="other">jiný</option>
+        </select>
+      </p>
+
+      <p>
+        <label for="age">Věk</label>
+        <input id="age" name="age" type="number" min="5" max="120" required>
+      </p>
+
+      <p>
+        <label for="gender">Pohlaví</label>
+        <select id="gender" name="gender" required>
+          <option value="" selected>— vyberte —</option>
+          <option value="female">žena</option>
+          <option value="male">muž</option>
+          <option value="nonbinary">nebinární</option>
+        </select>
+      </p>
+
+      <p>
+        <label for="education">Nejvyšší dosažené vzdělání</label>
+        <select id="education" name="education" required>
+          <option value="" selected disabled>— vyberte —</option>
+          <option value="primary">základní</option>
+          <option value="secondary">středoškolské</option>
+          <option value="higher">vysokoškolské</option>
+        </select>
+      </p>
+    `,
+            button_label: "Pokračovat",
+            data: { task: "demographics" }
+        };
+
+        const INSTR_BODY_HTML = `
+  <h2>Instrukce</h2>
+  <p>V následující části na obrazovce vždy uvidíte jedno slovo označující určitou věc. Vaším úkolem bude ke každému slovu do polí pod ním vypsat všechny činnosti, které se podle Vás s danou věcí obvykle pojí (co s danou věcí můžete Vy nebo někdo jiný dělat).</p>
+  <p>Příklad: Pokud se na obrazovce objeví například slovo <strong>tužka</strong> a Vy se budete domnívat, že s tužkou obvykle vyplňujeme sudoku, kreslíme, rýsujeme, tužky můžeme někde rozdávat, tužku ořezáváme, můžeme ji ztupit, okusovat nebo si s ní svazovat vlasy do drdolu, do políček budete postupně psát <i>vyplňovat sudoku, kreslit, rýsovat, rozdávat, ořezávat, ztupit, okusovat, svazovat vlasy do drdolu</i> – tak, jak Vás budou činnosti postupně napadat.</p>
+  <ul>
+    <li>Každou odpověď pište do <strong>samostatného pole</strong>.</li>
+    <li>Jakmile do pole něco napíšete, automaticky se pod ním nabídne další.</li>
+    <li>Do dalšího pole se přesunete klávesou <strong>Enter</strong> nebo <strong>Tab</strong>.</li>
+    <li>Nepřemýšlejte příliš dlouho – uvádějte činnosti, které Vás napadnou jako první.</li>
+    <li>Neexistují správné nebo špatné odpovědi.</li>
+    <li>Odpovídejte stručně, ideálně pomocí slovesa nebo krátkého slovního spojení.</li>
+    <li>Počet možných odpovědí není nijak omezen.</li>
+    <li>Jakmile budete mít pocit, že jste uvedli všechny smysluplné možnosti, klikněte na tlačítko Pokračovat a experiment se přesune k další položce.</li>
+  </ul>
+`;
+
+        const instructions_page = {
+            type: jsPsychHtmlButtonResponse,
+            css_classes: ["info-page"],
+            data: { task: "instructions", phase: "practice" },
+
+            stimulus: () => {
+                if (!allow_skip_practice) {
+                    return INSTR_BODY_HTML + `<p class="intro-note">Úlohu si nyní můžete vyzkoušet na dvou příkladech.</p>`;
+                }
+                return INSTR_BODY_HTML + `
+      <p class="intro-note">
+        Úlohu si znovu můžete vyzkoušet na dvou příkladech. Pokud je vše jasné, příklady můžete přeskočit a pokračovat na samotný experiment.
+      </p>
+    `;
+            },
+
+            choices: () => {
+                return !allow_skip_practice
+                    ? ["Vyzkoušet na příkladech"]
+                    : ["Vyzkoušet na příkladech", "Přeskočit příklady"];
+            },
+
+            button_html: (choice, choice_index) => {
+                // pokud dva buttony, první šedý, druhý žlutý
+                const cls = (allow_skip_practice && choice_index === 0) ? "btn-secondary" : "";
+                return `<button class="jspsych-btn ${cls}">${choice}</button>`;
+            },
+
+            on_finish: (data) => {
+                data.instructions_repeat = allow_skip_practice ? 1 : 0;
+            }
+        };
+
+
+
+        const feedback_page = {
+            type: jsPsychSurveyHtmlForm,
+            html: `
+      <p>Děkujeme za Váš čas! Experiment je u konce, prosíme Vás už jen o kliknutí na tlačítko níže, aby se odeslaly Vaše odpovědi.</p>
+      <p>Pokud máte k experimentu jakékoli poznámky, můžete nám je zanechat zde. V případě dotazů se můžete obrátit na e-mail martina.vokacova@ff.cuni.cz</p>
+      <p><textarea id="feedback_comments" name="feedback_comments" rows="4" cols="50"></textarea></p>
+    `,
+            button_label: "Ukončit experiment a odeslat výsledky",
+            css_classes: ["feed-page"],
+            data: { task: "feedback" }
+        };
+
+
+        const enter_fullscreen = {
+            type: jsPsychFullscreen,
+            fullscreen_mode: true,
+            delay_after: 0,
+            message:
+                "<p>Kliknutím na tlačítko níže povolíte režim celé obrazovky a zahájíte experiment</p>",
+            button_label: "Zahájit experiment",
+            css_classes: ["info-page", "center-page"],
+            on_load: () => {
+                moveProgressIntoTarget();
+            }
+        };
+
+
+        // ========= pomocné funkce  =========
+        // ========= dynamická políčka =========
+        const makeDynamicChainedInputsTrial = ({
+            stimulus,
+            instruction = "Uveďte všechny typické činnosti.",
+            task = "trial",
+            buttonLabel = "Další",
+            placeholder = "Napište odpověď a stiskněte Enter",
+            maxFields = 200,
+            requireFirst = true
+        } = {}) => {
+            return {
+                type: jsPsychSurveyHtmlForm,
+                css_classes: ["trial-page"],
+                html: `
+      <div class="ci-wrap">
+        <div class="ci-instr">${instruction}</div>
+        <div class="ci-stim">${stimulus}</div>
+        <div class="ci-inputs" id="ci_inputs"></div>
+      </div>
+    `,
+                button_label: buttonLabel,
+                data: { task, stimulus },
+
+                on_load: () => {
+                    const container = document.querySelector("#ci_inputs");
+                    const btn = document.querySelector("#jspsych-survey-html-form-next");
+                    if (!container) return;
+
+                    const trim = (v) => (v ?? "").toString().trim();
+                    const inputs = [];
+                    const keyOf = (idx0) => `ci_${String(idx0 + 1).padStart(2, "0")}`;
+
+                    // fokus + scroll tak, aby se nepřekrýval input a btn
+                    const reveal = (el) => {
+                        if (!el) return;
+
+                        try { el.focus({ preventScroll: true }); }
+                        catch { el.focus(); }
+
+                        const doScroll = () => {
+                            el.scrollIntoView({ block: "center", behavior: "smooth" });
+                        };
+
+                        requestAnimationFrame(doScroll);
+                        setTimeout(doScroll, 60);
+                    };
+
+                    const setButtonState = () => {
+                        if (!btn) return;
+                        if (!requireFirst) { btn.disabled = false; return; }
+                        btn.disabled = (inputs.length === 0 || trim(inputs[0].value) === "");
+                    };
+
+                    const removeFrom = (idx0) => {
+                        for (let i = inputs.length - 1; i >= idx0; i--) {
+                            const row = inputs[i].closest(".ci-row");
+                            if (row) row.remove();
+                            inputs.pop();
+                        }
+                    };
+
+                    const ensureNextExists = (idx0) => {
+                        if (idx0 >= maxFields) return null;
+                        if (inputs[idx0]) return inputs[idx0];
+
+                        const row = document.createElement("div");
+                        row.className = "ci-row";
+                        row.dataset.idx = String(idx0);
+
+                        const inp = document.createElement("input");
+                        inp.type = "text";
+                        inp.id = keyOf(idx0);
+                        inp.name = keyOf(idx0);
+                        inp.autocomplete = "off";
+                        inp.autocapitalize = "off";
+                        inp.spellcheck = false;
+                        inp.placeholder = placeholder;
+
+                        // pokud participant něco vyplní, vytvoř další pole
+                        // pokud to smaže, smaž i to další pole
+                        inp.addEventListener("input", () => {
+                            const v = trim(inp.value);
+                            if (v === "") removeFrom(idx0 + 1);
+                            else ensureNextExists(idx0 + 1);
+                            setButtonState();
+                        });
+
+                        // Enter/Tab: posuň fokus do dalšího pole + zajisti, že je vidět (scroll)
+                        inp.addEventListener("keydown", (e) => {
+                            const isForwardKey = (e.key === "Enter") || (e.key === "Tab" && !e.shiftKey);
+                            if (!isForwardKey) return;
+
+                            if (trim(inp.value) === "") { e.preventDefault(); return; }
+
+                            const next = ensureNextExists(idx0 + 1);
+                            if (next) {
+                                e.preventDefault();
+                                reveal(next);
+                            }
+                        });
+
+                        row.appendChild(inp);
+                        container.appendChild(row);
+                        inputs.push(inp);
+
+                        return inp;
+                    };
+
+                    const first = ensureNextExists(0);
+                    reveal(first);
+                    setButtonState();
+                },
+
+                on_finish: (data) => {
+                    const r = data.response || {};
+                    const answers = [];
+
+                    // procházej ci_... dokud nenajdeš prázdné
+                    for (let idx0 = 0; idx0 < maxFields; idx0++) {
+                        const k = `ci_${String(idx0 + 1).padStart(2, "0")}`;
+                        const v = (r[k] ?? "").toString().trim();
+                        if (v) answers.push(v);
+                        else break;
+                    }
+
+                    data.answers = answers;
+                    data.answers_joined = answers.join(" | "); // CSV-friendly úprava
+                    data.n_answers = answers.length;
+                }
+            };
+        };
+
+
+        // ========= category-aware shuffle =========
+        // mezi stejnejma kategoriema jsou vždycky minimálně 2 jiné (= gap)
+        const shuffleNoCloseCategories = (items, { key = "category", gap = 2, maxAttempts = 500 } = {}) => {
+            const getCat = (it) => {
+                const v = it?.[key];
+                const s = (v ?? "").toString().trim();
+                return s === "" ? "__MISSING__" : s;
+            };
+
+            const n = items.length;
+
+            // rychlá kontrola, jestli to je možný
+            const countsObj = {};
+            for (const it of items) {
+                const c = getCat(it);
+                countsObj[c] = (countsObj[c] || 0) + 1;
+            }
+            const counts = Object.values(countsObj);
+            const maxCount = counts.length ? Math.max(...counts) : 0;
+            const minNNeeded = (maxCount - 1) * (gap + 1) + 1; // nejčastější kategorie potřebuje tolik pozic
+            const maybeImpossible = minNNeeded > n;
+
+            const attemptOnce = () => {
+                // bucket per category + náhodné pořadí uvnitř
+                const buckets = new Map();
+                for (const it of jsPsych.randomization.shuffle(items)) {
+                    const c = getCat(it);
+                    if (!buckets.has(c)) buckets.set(c, []);
+                    buckets.get(c).push(it);
+                }
+
+                const remaining = new Map([...buckets.entries()].map(([c, arr]) => [c, arr.length]));
+                const out = [];
+                const cooldown = []; // kategorie použité naposled, neopakuj
+
+                for (let pos = 0; pos < n; pos++) {
+                    const blocked = new Set(cooldown);
+
+                    // povolené kategorie: mají ještě položky a nejsou v cooldown
+                    const eligible = [];
+                    for (const [c, cnt] of remaining.entries()) {
+                        if (cnt > 0 && !blocked.has(c)) eligible.push([c, cnt]);
+                    }
+                    if (eligible.length === 0) return null;
+
+                    // vyber kategorii s největším zbytkem (tie-break náhodně)
+                    const bestCnt = Math.max(...eligible.map(([, cnt]) => cnt));
+                    const bestCats = eligible.filter(([, cnt]) => cnt === bestCnt).map(([c]) => c);
+                    const chosen = bestCats[Math.floor(Math.random() * bestCats.length)];
+
+                    const arr = buckets.get(chosen);
+                    out.push(arr.pop());
+                    remaining.set(chosen, remaining.get(chosen) - 1);
+
+                    cooldown.push(chosen);
+                    if (cooldown.length > gap) cooldown.shift();
+                }
+
+                return out;
+            };
+
+            for (let a = 0; a < maxAttempts; a++) {
+                const out = attemptOnce();
+                if (out) return { list: out, gapUsed: gap, maybeImpossible };
+            }
+
+            // fallback: postupně zmírňuj constraint, ať to kdyžtak doběhne
+            if (gap > 0) {
+                const relaxed = shuffleNoCloseCategories(items, { key, gap: gap - 1, maxAttempts });
+                return { ...relaxed, maybeImpossible: true };
+            }
+
+            return { list: jsPsych.randomization.shuffle(items), gapUsed: 0, maybeImpossible: true };
+        };
+
+        // kontrola constraintu (pro debug / do metadat)
+        const checkMinGap = (list, key = "category", gap = 2) => {
+            for (let i = 0; i < list.length; i++) {
+                const c = (list[i]?.[key] ?? "__MISSING__").toString().trim();
+                for (let j = 1; j <= gap; j++) {
+                    if (i + j < list.length) {
+                        const c2 = (list[i + j]?.[key] ?? "__MISSING__").toString().trim();
+                        if (c2 === c) return false;
+                    }
+                }
+            }
+            return true;
+        };
+
+
+        // ========= přestěhování progressbaru do fullscreenu =========
+        const moveProgressIntoTarget = () => {
+            const pb = document.querySelector("#jspsych-progressbar-container");
+            const target = document.querySelector("#jspsych-target") || document.body;
+            if (pb && target && !target.contains(pb)) target.prepend(pb);
+        };
+
+
+
+        // ========= trial k získání infa o prohlížeči =========
+        const browser_check = {
+            type: jsPsychBrowserCheck,
+            data: { task: "browser_check" },
+            on_finish: (data) => {
+                jsPsych.data.addProperties({
+                    // názvy sloupců
+                    width: data.width,
+                    height: data.height,
+                    webaudio: data.webaudio,
+                    fullscreen: data.fullscreen,
+                    webcam: data.webcam,
+                    microphone: data.microphone,
+                    vsync_rate: data.vsync_rate,
+
+                    browser: data.browser,
+                    browser_version: data.browser_version,
+                    os: data.os,
+                    mobile: data.mobile
+                });
+            }
+        };
+
+        // ========= PRACTICE BLOK =========
+        const practice_items = ["led", "hrnek"];
+        const practice_trials = practice_items.map((w, i) => {
+            const t = makeDynamicChainedInputsTrial({
+                stimulus: w,
+                instruction: "",
+                task: "practice",
+                buttonLabel: "Pokračovat",
+                maxFields: 50,
+                placeholder: "uveďte činnost",
+                requireFirst: true
+            });
+            t.data = { ...(t.data || {}), phase: "practice", item_index: i + 1 };
+            return t;
+        });
+
+        const practice_end_page = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: `<p> 
+      Dokončili jste cvičný blok. Pokud chcete, můžete se vrátit k instrukcím a projít si je ještě jednou.
+      Pokud je vše jasné, pokračujte prosím na samotný experiment.
+    </p>`,
+            choices: ["Zpět na instrukce", "Pokračovat"],
+            css_classes: ["info-page", "center-page"],
+
+            button_html: (choice, choice_index) => {
+                const cls = choice_index === 0 ? "btn-secondary" : "btn-primary";
+                return `<button class="jspsych-btn ${cls}">${choice}</button>`;
+            }, // takhle to dělám proto, že první btn nechci žlutě
+            data: { task: "practice_end_choice" }
+        };
+
+        const practice_block = {
+            timeline: [...practice_trials, practice_end_page],
+            conditional_function: () => {
+                // poprvé vždy příklady
+                if (!allow_skip_practice) return true;
+
+                // po návratu rozhoduje dle volby
+                // 0 = znovu příklady, 1 = přeskočit
+                const last = jsPsych.data.get().last(1).values()[0];
+                return Number(last.response) === 0;
+            }
+        };
+        const instructions_block = {
+            timeline: [instructions_page, practice_block],
+            loop_function: (data) => {
+                const last = data.last(1).values()[0];
+
+                const goBack =
+                    last?.task === "practice_end_choice" &&
+                    Number(last.response) === 0;
+
+                // opakování nepočítej do progressbaru
+                suppress_practice_repeat = goBack;
+
+                // jakmile se participant vrátí, nabídni v instrukcích možnost skipu
+                if (goBack) allow_skip_practice = true;
+
+                return goBack;
+            }
+        };
+
+
+
+
+
+        // ========= MAIN TRIALS se stimuli.js =========
+        //const stimList = jsPsych.randomization.shuffle(stimuli);
+        const GAP = 2;
+        const catShuffle = shuffleNoCloseCategories(stimuli, { key: "category", gap: GAP, maxAttempts: 800 });
+        const stimList = catShuffle.list;
+        // povedlo se dodržet rozestup i++ mezi stimuly?
+        const cat_spacing_ok = checkMinGap(stimList, "category", GAP);
+        jsPsych.data.addProperties({ cat_spacing_ok });
+        const main_trials = stimList.map((s, i) => {
+            const t = makeDynamicChainedInputsTrial({
+                stimulus: s.cue,
+                instruction: "",
+                maxFields: 100,
+                buttonLabel: "Pokračovat",
+                placeholder: "uveďte činnost",
+                task: "uses"
+            });
+
+            // metadata stimulu do řádku
+            t.data = {
+                ...(t.data || {}),
+                phase: "main",
+                item_index: i + 1,
+                cue: s.cue ?? "",
+                en: s.en ?? "",
+                ep_verb: s.ep_verb ?? "",
+                ep_verb_freq: s.ep_verb_freq ?? "",
+                cue_freq: s.cue_freq ?? "",
+                category: s.category ?? ""
+            };
+
+            return t;
+        });
+
+        // ========= TIMELINE =========
+        const timeline = [
+            intro_page,
+            browser_check,
+            demographic_page,
+            instructions_block,
+            enter_fullscreen,
+            ...main_trials,
+            feedback_page
+        ];
+
+        jatos.onLoad(() => {
+
+            jsPsych.data.addProperties({
+                jatos_worker_id: String(jatos.workerId ?? ""),
+                jatos_study_result_id: String(jatos.studyResultId ?? "")
+            });
+            progress_total = // celkový počet kroků při normálním průchodu bez opakování instrukcí:
+                1 + // intro_page
+                1 + // demographic_page
+                1 + // instructions_page
+                practice_trials.length +
+                1 + // practice_end_page
+                1 + // enter_fullscreen
+                main_trials.length +
+                1;  // feedback_page
+
+            progress_done = 0;
+            suppress_practice_repeat = false;
+            jsPsych.run(timeline);
+            //  setTimeout(moveProgressIntoTarget, 0);
+        });
+    </script>
+</body>
+
+</html>

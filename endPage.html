@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Poděkování</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --text: #1f2937;
+        --muted: rgba(31, 41, 55, 0.18);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: "Open Sans", "Arial", sans-serif;
+        background: radial-gradient(1200px 600px at 20% 10%, #ffffff 0%, var(--bg) 60%, #eef2ff 100%);
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        padding: 28px 18px;
+        color: var(--text);
+      }
+
+      .wrap {
+        width: min(900px, 100%);
+        text-align: center;
+      }
+
+      .logo {
+        width: min(360px, 85%);
+        height: auto;
+        display: block;
+        margin: 0 auto 18px auto;
+      }
+
+      hr {
+        border: none;
+        border-top: 1px solid var(--muted);
+        margin: 16px auto 22px auto;
+        width: min(720px, 100%);
+      }
+
+      .thanks {
+        font-size: clamp(22px, 3.2vw, 30px);
+        font-weight: 700;
+        letter-spacing: -0.2px;
+        margin: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="wrap" role="status" aria-live="polite">
+      <img
+        class="logo"
+        src="https://www.ff.cuni.cz/wp-content/uploads/2014/07/rgb1-1.png"
+        alt="Filozofická fakulta Univerzity Karlovy"
+      />
+
+      <hr />
+
+      <p class="thanks">Výsledky jsme obdrželi, děkujeme!</p>
+    </main>
+  </body>
+</html>
